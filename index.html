@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart HRMS Portal - B.Tech Project</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen p-4 md:p-8">
+  <div class="max-w-5xl mx-auto space-y-6">
+    <header class="bg-indigo-700 text-white p-6 rounded-xl shadow flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h1 class="text-2xl font-bold">Smart HRMS Portal</h1>
+        <p class="text-indigo-200 text-sm">Employee Directory, Payroll & Public Holiday API Integration</p>
+      </div>
+      <div id="holiday-banner" class="bg-indigo-800 px-4 py-2 rounded text-sm">
+        Loading upcoming public holidays...
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-white p-6 rounded-xl shadow">
+        <h2 class="text-lg font-semibold mb-4">Add New Employee</h2>
+        <form id="empForm" class="space-y-3">
+          <input type="text" id="name" placeholder="Full Name" required class="w-full border p-2 rounded">
+          <input type="email" id="email" placeholder="Email Address" required class="w-full border p-2 rounded">
+          <input type="text" id="department" placeholder="Department (e.g., IT, HR)" required class="w-full border p-2 rounded">
+          <input type="text" id="role" placeholder="Role (e.g., Developer)" required class="w-full border p-2 rounded">
+          <input type="number" id="salary" placeholder="Monthly Base Salary (₹)" required class="w-full border p-2 rounded">
+          <input type="number" id="leaves" placeholder="Approved Leaves (Days)" value="0" min="0" class="w-full border p-2 rounded">
+          <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 font-medium">
+            Save Employee
+          </button>
+        </form>
+      </div>
+
+      <div class="bg-white p-6 rounded-xl shadow md:col-span-2 overflow-x-auto">
+        <h2 class="text-lg font-semibold mb-4">Active Employees</h2>
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b text-slate-500 text-sm">
+              <th class="py-2">Avatar</th>
+              <th class="py-2">Name & Role</th>
+              <th class="py-2">Dept</th>
+              <th class="py-2">Base Salary</th>
+              <th class="py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="empTableBody" class="divide-y text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const defaultEmployees = [
+      { id: 1, name: "Arjit Kumar", email: "arjit@gmail.com", department: "IT", role: "Full Stack Developer", base_salary: 65000, leaves: 1 }
+    ];
+
+    function getEmployees() {
+      const data = localStorage.getItem("hrms_employees");
+      if (!data) {
+        localStorage.setItem("hrms_employees", JSON.stringify(defaultEmployees));
+        return defaultEmployees;
+      }
+      return JSON.parse(data);
+    }
+
+    function loadEmployees() {
+      const employees = getEmployees();
+      const tbody = document.getElementById("empTableBody");
+      tbody.innerHTML = "";
+
+      employees.forEach(emp => {
+        const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.name)}&background=random&color=fff`;
+        tbody.innerHTML += `
+          <tr>
+            <td class="py-3"><img src="${avatarUrl}" class="w-8 h-8 rounded-full" alt="avatar"></td>
+            <td class="py-3 font-medium">${emp.name}<div class="text-xs text-slate-400">${emp.role}</div></td>
+            <td class="py-3">${emp.department}</td>
+            <td class="py-3">₹${emp.base_salary.toLocaleString()}</td>
+            <td class="py-3 space-x-2">
+              <button onclick="viewPayroll(${emp.id})" class="text-indigo-600 font-medium hover:underline">Payslip</button>
+              <button onclick="deleteEmployee(${emp.id})" class="text-red-500 hover:underline">Delete</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    document.getElementById("empForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const employees = getEmployees();
+      const newEmp = {
+        id: Date.now(),
+        name: document.getElementById("name").value,
+        email: document.getElementById("email").value,
+        department: document.getElementById("department").value,
+        role: document.getElementById("role").value,
+        base_salary: parseFloat(document.getElementById("salary").value),
+        leaves: parseInt(document.getElementById("leaves").value || "0")
+      };
+      employees.push(newEmp);
+      localStorage.setItem("hrms_employees", JSON.stringify(employees));
+      e.target.reset();
+      loadEmployees();
+    });
+
+    function viewPayroll(empId) {
+      const emp = getEmployees().find(e => e.id === empId);
+      if (!emp) return;
+      const unpaidDays = Math.max(0, (emp.leaves || 0) - 2);
+      const dailyWage = emp.base_salary / 30;
+      const leaveDeduction = Math.round(unpaidDays * dailyWage);
+      const pfTax = Math.round(emp.base_salary * 0.12);
+      const netSalary = emp.base_salary - leaveDeduction - pfTax;
+
+      alert(
+        `Payslip for ${emp.name}\n` +
+        `------------------------\n` +
+        `Base Salary: ₹${emp.base_salary.toLocaleString()}\n` +
+        `Approved Leaves: ${emp.leaves || 0} Days (2 Paid Free)\n` +
+        `Leave Deduction: -₹${leaveDeduction.toLocaleString()}\n` +
+        `PF & Tax (12%): -₹${pfTax.toLocaleString()}\n` +
+        `------------------------\n` +
+        `Net Payable: ₹${netSalary.toLocaleString()}`
+      );
+    }
+
+    function deleteEmployee(empId) {
+      const updated = getEmployees().filter(e => e.id !== empId);
+      localStorage.setItem("hrms_employees", JSON.stringify(updated));
+      loadEmployees();
+    }
+
+    async function loadHolidays() {
+      try {
+        const year = new Date().getFullYear();
+        const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/US`);
+        const holidays = await res.json();
+        const nextHoliday = holidays.find(h => new Date(h.date) >= new Date()) || holidays[0];
+        document.getElementById("holiday-banner").innerText = `Next Holiday: ${nextHoliday.name} (${nextHoliday.date})`;
+      } catch {
+        document.getElementById("holiday-banner").innerText = "Holiday Calendar Synced";
+      }
+    }
+
+    loadEmployees();
+    loadHolidays();
+  </script>
+</body>
+</html>
